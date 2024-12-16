@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("student")
+  bio           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  courses       Course[]  @relation("InstructorCourses")
+  enrollments   Enrollment[]
+  discussions   Discussion[]
+  replies       DiscussionReply[]
+  reviews       Review[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Course {
+  id            String   @id @default(cuid())
+  title         String
+  description   String   @db.Text
+  thumbnail     String?
+  price         Float
+  category      String
+  level         String
+  requirements  Json
+  outcomes      Json
+  status        String   @default("draft")
+  instructorId  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  instructor    User          @relation("InstructorCourses", fields: [instructorId], references: [id])
+  sections      Section[]
+  enrollments   Enrollment[]
+  discussions   Discussion[]
+  reviews       Review[]
+}
+
+model Section {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  position    Int
+  courseId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+}
+
+model Lesson {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?  @db.Text
+  videoUrl      String?
+  duration      Int?
+  position      Int
+  isPublished   Boolean  @default(false)
+  sectionId     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  section       Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress      LessonProgress[]
+}
+
+model LessonProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  lessonId      String
+  progress      Float     @default(0)
+  completedAt   DateTime?
+  lastWatchedAt DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson        Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+}
+
+model Enrollment {
+  id              String    @id @default(cuid())
+  userId          String
+  courseId        String
+  status          String    @default("active")
+  progress        Float     @default(0)
+  completedLessons Json     @default("[]")
+  lastAccessedAt   DateTime @default(now())
+  completedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course          Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model Discussion {
+  id              String    @id @default(cuid())
+  title           String
+  content         String    @db.Text
+  userId          String
+  courseId        String
+  lessonId        String?
+  isAnnouncement  Boolean   @default(false)
+  isPinned        Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id])
+  course          Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  replies         DiscussionReply[]
+}
+
+model DiscussionReply {
+  id                String    @id @default(cuid())
+  content           String    @db.Text
+  userId            String
+  discussionId      String
+  isInstructorReply Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              User        @relation(fields: [userId], references: [id])
+  discussion        Discussion  @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String   @db.Text
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
